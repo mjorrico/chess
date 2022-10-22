@@ -1,0 +1,4 @@
+.chess_main_env/
+__*
+*.ipynb
+.ipynb_checkpoints
