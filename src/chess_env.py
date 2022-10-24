@@ -1,13 +1,35 @@
 """
 This class is responsible to store current game state and listing all valid moves.
 """
-from numpy import array, concatenate, reshape
+from typing import Iterable
+from numpy import array, concatenate
+from chess_error import ChessError
 from move import Move
 
-from chesserror import ChessError
+import itertools
 
-black_pieces = ["p", "n", "b", "r", "q", "k"]
-white_pieces = ["P", "N", "B", "R", "Q", "K"]
+black_pieces = "pnbrqk"
+white_pieces = "PNBRQK"
+
+diag_movements = list(itertools.product([1, -1], [1, -1]))
+rook_movements = [[0, -1], [-1, 0], [0, 1], [1, 0]]  # straight movements
+L_movements = [
+    [-2, -1],  # going up twice and going left once
+    [-2, 1],
+    [-1, 2],
+    [1, 2],
+    [2, 1],
+    [2, -1],
+    [1, -2],
+    [-1, -2],
+]
+king_movements = [
+    [i, j] for i in [-1, 0, 1] for j in [-1, 0, 1] if (i != 0 or j != 0)
+]
+
+
+def is_valid_loc(row, col):
+    return 0 <= row <= 7 and 0 <= col <= 7
 
 
 class Chessboard:
@@ -50,7 +72,7 @@ class Chessboard:
         self.move_log.append(m)
 
     def undo_move(self):
-        if len(self.move_log) != 0:
+        if len(self.move_log) > 0:
             m: Move = self.move_log.pop()
             self.board[m.start_row, m.start_col] = m.piece_moved
             self.white_to_move = not self.white_to_move
@@ -60,7 +82,7 @@ class Chessboard:
                 enpassant_row = m.enpassant_capt_sq[0]
                 enpassant_col = m.enpassant_capt_sq[1]
                 self.board[m.end_row, m.end_col] = "."
-                self.board[enpassant_row, enpassant_col] = 3
+                self.board[enpassant_row, enpassant_col] = "p"
 
     def get_valid_moves(self):  # removes invalid moves from possible moves
         return self.get_possible_moves()
@@ -77,13 +99,14 @@ class Chessboard:
                     if current_piece.lower() == "p":
                         all_possible_moves += self.get_pawn_moves(i, j)
                     elif current_piece.lower() == "b":
-                        all_possible_moves += self.get_bishop_moves(i, j)
+                        all_possible_moves += self.get_bshp_moves(i, j)
                     elif current_piece.lower() == "n":
-                        all_possible_moves += self.get_knight_moves(i, j)
+                        all_possible_moves += self.get_kght_moves(i, j)
                     elif current_piece.lower() == "r":
                         all_possible_moves += self.get_rook_moves(i, j)
                     elif current_piece.lower() == "q":
-                        all_possible_moves += self.get_queen_moves(i, j)
+                        all_possible_moves += self.get_bshp_moves(i, j)
+                        all_possible_moves += self.get_rook_moves(i, j)
                     elif current_piece.lower() == "k":
                         all_possible_moves += self.get_king_moves(i, j)
                     else:
@@ -186,30 +209,53 @@ class Chessboard:
 
         return pawn_moves
 
-    def get_bishop_moves(self, r, c):
-        bishop_moves = []
-
-        return bishop_moves
-
-    def get_knight_moves(self, r, c):
-        knight_moves = []
-
-        return knight_moves
+    def get_bshp_moves(self, r, c):
+        return self.get_straight_moves(r, c, diag_movements)
 
     def get_rook_moves(self, r, c):
-        rook_moves = []
+        return self.get_straight_moves(r, c, rook_movements)
 
-        return rook_moves
+    def get_straight_moves(self, r, c, movetype_list: Iterable):
+        moves = []
 
-    def get_queen_moves(self, r, c):
-        queen_moves = []
+        for movetype in movetype_list:
+            new_row, new_col = r, c
+            while True:
+                new_row += movetype[0]
+                new_col += movetype[1]
+                if is_valid_loc(new_row, new_col):
+                    target_piece = self.board[new_row, new_col]
+                    if target_piece in self.friend_pieces:
+                        break
+                    else:
+                        moves.append(
+                            Move([r, c], [new_row, new_col], self.board)
+                        )
+                        if target_piece != ".":  # if it is enemy's piece
+                            break
+                else:  # going out of bound
+                    break
 
-        return queen_moves
+        return moves
+
+    def get_kght_moves(self, r, c):
+        return self.get_fixed_moves(r, c, L_movements)
 
     def get_king_moves(self, r, c):
-        king_moves = []
+        return self.get_fixed_moves(r, c, king_movements)
 
-        return king_moves
+    def get_fixed_moves(self, r, c, movetype_list: Iterable):
+        moves = []
+
+        for movetype in movetype_list:
+            new_row = r + movetype[0]
+            new_col = c + movetype[1]
+            if is_valid_loc(new_row, new_col):
+                target_piece = self.board[new_row, new_col]
+                if target_piece in "." + self.foe_pieces:
+                    moves.append(Move([r, c], [new_row, new_col], self.board))
+
+        return moves
 
     def __str__(self):
         indexing_ui = array([["x", "0", "1", "2", "3", "4", "5", "6", "7"]])
@@ -217,3 +263,17 @@ class Chessboard:
         board_ui = concatenate((indexing_ui.T, board_ui), axis=1)
         info_1 = "\nWhite to move" if self.white_to_move else "\nBlack to move"
         return str(board_ui) + info_1
+
+
+if __name__ == "__main__":
+    game = Chessboard()
+    m1 = Move([6, 1], [4, 1], game.board)
+    m2 = Move([1, 2], [3, 2], game.board)
+    m3 = Move([6, 3], [5, 3], game.board)
+    m4 = Move([1, 3], [2, 3], game.board)
+    game.make_move(m1)
+    game.make_move(m2)
+    game.make_move(m3)
+    game.make_move(m4)
+    print(game)
+    print(game.get_possible_moves())
