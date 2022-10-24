@@ -60,7 +60,7 @@ class Chessboard:
 
     def make_move(self, m: Move):
         if m not in self.get_valid_moves():
-            raise ChessError(f"Invalid move {m}")
+            raise ChessError(f"invalid move {m}")
 
         self.board[m.end_row, m.end_col] = (
             m.promote_to
@@ -68,6 +68,12 @@ class Chessboard:
             else self.board[m.start_row, m.start_col]
         )
         self.board[m.start_row, m.start_col] = "."
+
+        if m.enpassant_capt_sq:
+            ep_row = m.enpassant_capt_sq[0]
+            ep_col = m.enpassant_capt_sq[1]
+            self.board[ep_row, ep_col] = "."
+
         self.white_to_move = not self.white_to_move
         self.move_log.append(m)
 

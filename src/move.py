@@ -25,13 +25,17 @@ class Move:
         self.end_row = end[0]
         self.end_col = end[1]
         self.piece_moved = board[self.start_row, self.start_col]
+        self.piece_captured = board[self.end_row, self.end_col]
         self.promote_to = promote_to
-        self.enpassant_capt_sq = enpassant_capt_sq
-        self.piece_captured = (
-            board[enpassant_capt_sq[0], enpassant_capt_sq[1]]
-            if enpassant_capt_sq
-            else board[self.end_row, self.end_col]
-        )
+        if (
+            self.piece_moved.lower() == "p"
+            and self.piece_captured == "."
+            and self.end_col != self.start_col
+        ):  # this is enpassant move
+            self.piece_captured = board[self.start_row, self.end_col]
+            self.enpassant_capt_sq = [self.start_row, self.end_col]
+        else:
+            self.enpassant_capt_sq = None
 
     @cached_property
     def chess_notation(self):
@@ -54,8 +58,8 @@ class Move:
             and self.start_col == other.start_col
             and self.end_row == other.end_row
             and self.end_col == other.end_col
-            and self.piece_moved == other.piece_moved
             and self.promote_to == other.promote_to
-            and self.enpassant_capt_sq == other.enpassant_capt_sq
+            and self.piece_moved == other.piece_moved
             and self.piece_captured == other.piece_captured
+            and self.enpassant_capt_sq == other.enpassant_capt_sq
         )

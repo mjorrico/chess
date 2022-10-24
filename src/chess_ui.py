@@ -9,7 +9,7 @@ from move import Move
 
 WIDTH = HEIGHT = 512 // 8 * 8
 SQUARE_SIZE = HEIGHT // 8
-MAX_FPS = 30
+MAX_FPS = 10
 IMAGES = {}
 SOUNDS = {}
 
@@ -61,7 +61,6 @@ def main():
                         last_click = (row, col)
                         clicks.append(last_click)
                         move = Move(clicks[0], clicks[1], gs.board)
-
                         # make move
                         try:
                             gs.make_move(move)
