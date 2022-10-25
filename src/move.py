@@ -18,7 +18,6 @@ class Move:
         end,
         board: np.ndarray,
         promote_to=None,
-        enpassant_capt_sq: List = None,
     ):
         self.start_row = start[0]
         self.start_col = start[1]
@@ -27,6 +26,7 @@ class Move:
         self.piece_moved = board[self.start_row, self.start_col]
         self.piece_captured = board[self.end_row, self.end_col]
         self.promote_to = promote_to
+
         if (
             self.piece_moved.lower() == "p"
             and self.piece_captured == "."
@@ -38,7 +38,21 @@ class Move:
             self.enpassant_capt_sq = None
 
     @cached_property
+    def is_castling(self):
+        if self.piece_moved.lower() == "k":
+            column_change = self.start_col - self.end_col
+            if column_change < -1.5:  # castling kingside
+                return "kingside"
+            elif column_change > 1.5:  # castling queenside
+                return "queenside"
+            else:
+                return None
+
+    @cached_property
     def chess_notation(self):
+        if self.is_castling:
+            return "O-O-O" if self.end_col < self.start_col else "O-O"
+
         notation = "" if self.piece_moved in ["p", "P"] else self.piece_moved
         notation += self.get_file_rank(self.start_row, self.start_col)
         notation += "x" if self.piece_captured != "." else ""

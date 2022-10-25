@@ -49,6 +49,8 @@ class Chessboard:
 
         self.white_to_move = True
         self.move_log = []
+        self.white_castles = [True, True]  # queenside, kingside
+        self.black_castles = [True, True]  # kingside, queenside
 
     @property
     def foe_pieces(self):
@@ -74,8 +76,35 @@ class Chessboard:
             ep_col = m.enpassant_capt_sq[1]
             self.board[ep_row, ep_col] = "."
 
+        if m.piece_moved == "K":
+            self.white_castles = [False, False]
+        elif m.piece_moved == "k":
+            self.black_castles = [False, False]
+
+        # check if rook has moved
+        if self.white_castles[0]:  # False if white can't castle queeenside
+            self.white_castles[0] = self.board[-1, 0] == "R"
+        if self.white_castles[1]:
+            self.white_castles[1] = self.board[-1, -1] == "R"
+        if self.black_castles[0]:
+            self.black_castles[0] = self.board[0, 0] == "r"
+        if self.black_castles[1]:
+            self.black_castles[1] = self.board[0, -1] == "r"
+
+        if m.is_castling:
+            rook_row = 7 if self.white_to_move else 0
+            which_rook = "R" if self.white_to_move else "r"
+            rook_col = 0 if m.is_castling == "queenside" else 7
+            rook_col_new = 3 if m.is_castling == "queenside" else 5
+
+            self.board[rook_row, rook_col_new] = which_rook
+            self.board[rook_row, rook_col] = "."
+
         self.white_to_move = not self.white_to_move
         self.move_log.append(m)
+
+        v = self.get_valid_moves()
+        print(v, len(v), end="\n\n")
 
     def undo_move(self):
         if len(self.move_log) > 0:
@@ -115,6 +144,7 @@ class Chessboard:
                         all_possible_moves += self.get_rook_moves(i, j)
                     elif current_piece.lower() == "k":
                         all_possible_moves += self.get_king_moves(i, j)
+                        all_possible_moves += self.get_ctle_moves()
                     else:
                         raise ChessError("The piece is unknown")
 
@@ -158,15 +188,7 @@ class Chessboard:
                     and abs(last_move.start_col - c) == 1  # column diff is 1
                 ):
                     end_col = last_move.start_col  # or last_move.end_col
-                    pawn_moves.append(
-                        Move(
-                            [r, c],
-                            [2, end_col],
-                            self.board,
-                            None,
-                            [3, end_col],
-                        )
-                    )
+                    pawn_moves.append(Move([r, c], [2, end_col], self.board))
 
         else:  # moving black pawn
 
@@ -203,15 +225,7 @@ class Chessboard:
                     and abs(last_move.start_col - c) == 1  # column diff is 1
                 ):
                     end_col = last_move.start_col  # or last_move.end_col
-                    pawn_moves.append(
-                        Move(
-                            [r, c],
-                            [5, end_col],
-                            self.board,
-                            None,
-                            [4, end_col],
-                        )
-                    )
+                    pawn_moves.append(Move([r, c], [5, end_col], self.board))
 
         return pawn_moves
 
@@ -263,23 +277,25 @@ class Chessboard:
 
         return moves
 
+    def get_ctle_moves(self):  # get possible castling moves
+        castle_moves = []
+
+        if self.white_to_move:
+            if self.white_castles[0] and all(self.board[-1, 1:4] == "."):
+                castle_moves.append(Move([7, 4], [7, 2], self.board))
+            if self.white_castles[1] and all(self.board[-1, 5:7] == "."):
+                castle_moves.append(Move([7, 4], [7, 6], self.board))
+        else:
+            if self.black_castles[0] and all(self.board[0, 1:4] == "."):
+                castle_moves.append(Move([0, 4], [0, 2], self.board))
+            if self.black_castles[1] and all(self.board[0, 5:7] == "."):
+                castle_moves.append(Move([0, 4], [0, 6], self.board))
+
+        return castle_moves
+
     def __str__(self):
         indexing_ui = array([["x", "0", "1", "2", "3", "4", "5", "6", "7"]])
         board_ui = concatenate((indexing_ui[:, 1:], self.board), axis=0)
         board_ui = concatenate((indexing_ui.T, board_ui), axis=1)
         info_1 = "\nWhite to move" if self.white_to_move else "\nBlack to move"
         return str(board_ui) + info_1
-
-
-if __name__ == "__main__":
-    game = Chessboard()
-    m1 = Move([6, 1], [4, 1], game.board)
-    m2 = Move([1, 2], [3, 2], game.board)
-    m3 = Move([6, 3], [5, 3], game.board)
-    m4 = Move([1, 3], [2, 3], game.board)
-    game.make_move(m1)
-    game.make_move(m2)
-    game.make_move(m3)
-    game.make_move(m4)
-    print(game)
-    print(game.get_possible_moves())

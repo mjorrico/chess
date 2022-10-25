@@ -9,7 +9,7 @@ from move import Move
 
 WIDTH = HEIGHT = 512 // 8 * 8
 SQUARE_SIZE = HEIGHT // 8
-MAX_FPS = 10
+MAX_FPS = 60
 IMAGES = {}
 SOUNDS = {}
 
@@ -24,7 +24,7 @@ def load_images():
 
 def load_sounds():
     SOUNDS_DIR = "asset/sound/"
-    for type in ["move", "capture"]:
+    for type in ["move", "capture", "oof"]:
         SOUNDS[type] = p.mixer.Sound(SOUNDS_DIR + type + ".mp3")
 
 
@@ -44,10 +44,11 @@ def main():
     while running:
         for e in p.event.get():
             if e.type == p.QUIT:
+                print("Bye bye!")
                 running = False
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z:
-                    gs.undoMove()
+                    gs.undo_move()
             elif e.type == p.MOUSEBUTTONDOWN:
                 pos = p.mouse.get_pos()
                 col = pos[0] // SQUARE_SIZE
@@ -61,10 +62,12 @@ def main():
                         last_click = (row, col)
                         clicks.append(last_click)
                         move = Move(clicks[0], clicks[1], gs.board)
-                        # make move
                         try:
                             gs.make_move(move)
                             # play sound
+                            # if gs.in_check():
+                            #     p.mixer.Sound.play(SOUNDS["oof"])
+                            # elif
                             if move.piece_captured == ".":
                                 p.mixer.Sound.play(SOUNDS["move"])
                             else:

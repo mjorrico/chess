@@ -1,3 +1,4 @@
-Sound obtained at
+Sounds obtained at
 
-    https://github.com/lichess-org/lila/tree/master/public/sound
+- [Lichess official Github Repository](https://github.com/lichess-org/lila/tree/master/public/sound)
+- [Roblox Oof Sound](https://www.gamespecifications.com/roblox-oof-sound-download/)
