@@ -51,7 +51,7 @@ class Move:
     @cached_property
     def chess_notation(self):
         if self.is_castling:
-            return "O-O-O" if self.end_col < self.start_col else "O-O"
+            return "O-O-O" if self.is_castling == "queenside" else "O-O"
 
         notation = "" if self.piece_moved in ["p", "P"] else self.piece_moved
         notation += self.get_file_rank(self.start_row, self.start_col)

@@ -92,10 +92,10 @@ class Chessboard:
             self.black_castles[1] = self.board[0, -1] == "r"
 
         if m.is_castling:
-            rook_row = 7 if self.white_to_move else 0
-            which_rook = "R" if self.white_to_move else "r"
-            rook_col = 0 if m.is_castling == "queenside" else 7
-            rook_col_new = 3 if m.is_castling == "queenside" else 5
+            rook_row, which_rook = [7, "R"] if self.white_to_move else [0, "r"]
+            rook_col, rook_col_new = (
+                [0, 3] if m.is_castling == "queenside" else [7, 5]
+            )
 
             self.board[rook_row, rook_col_new] = which_rook
             self.board[rook_row, rook_col] = "."
