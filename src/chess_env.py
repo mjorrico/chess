@@ -36,21 +36,27 @@ class Chessboard:
     def __init__(self):
         self.board = array(
             [
-                ["r", "n", "b", "q", "k", "b", "n", "r"],
-                ["p", "p", "p", "p", "p", "p", "p", "p"],
+                ["r", ".", ".", ".", "k", ".", ".", "r"],
                 [".", ".", ".", ".", ".", ".", ".", "."],
                 [".", ".", ".", ".", ".", ".", ".", "."],
                 [".", ".", ".", ".", ".", ".", ".", "."],
                 [".", ".", ".", ".", ".", ".", ".", "."],
-                ["P", "P", "P", "P", "P", "P", "P", "P"],
-                ["R", "N", "B", "Q", "K", "B", "N", "R"],
+                [".", ".", ".", ".", ".", ".", ".", "."],
+                [".", ".", ".", ".", ".", ".", ".", "."],
+                ["R", ".", ".", ".", "K", ".", ".", "R"],
             ]
         )
 
         self.white_to_move = True
         self.move_log = []
-        self.white_castles = [True, True]  # queenside, kingside
-        self.black_castles = [True, True]  # kingside, queenside
+        self.when_w_k_moved = None
+        self.when_b_k_moved = None
+        self.when_w_r_moved = [None] * 2  # queenside, kingside
+        self.when_b_r_moved = [None] * 2  # kingside, queenside
+
+    @property
+    def n_half_moves(self):
+        return len(self.move_log)
 
     @property
     def foe_pieces(self):
@@ -64,6 +70,10 @@ class Chessboard:
         if m not in self.get_valid_moves():
             raise ChessError(f"invalid move {m}")
 
+        self.white_to_move = not self.white_to_move
+        self.move_log.append(m)
+
+        # promotion move
         self.board[m.end_row, m.end_col] = (
             m.promote_to
             if m.promote_to
@@ -71,28 +81,17 @@ class Chessboard:
         )
         self.board[m.start_row, m.start_col] = "."
 
+        # enpassant move
         if m.enpassant_capt_sq:
             ep_row = m.enpassant_capt_sq[0]
             ep_col = m.enpassant_capt_sq[1]
             self.board[ep_row, ep_col] = "."
 
-        if m.piece_moved == "K":
-            self.white_castles = [False, False]
-        elif m.piece_moved == "k":
-            self.black_castles = [False, False]
-
-        # check if rook has moved
-        if self.white_castles[0]:  # False if white can't castle queeenside
-            self.white_castles[0] = self.board[-1, 0] == "R"
-        if self.white_castles[1]:
-            self.white_castles[1] = self.board[-1, -1] == "R"
-        if self.black_castles[0]:
-            self.black_castles[0] = self.board[0, 0] == "r"
-        if self.black_castles[1]:
-            self.black_castles[1] = self.board[0, -1] == "r"
-
+        # castling move
         if m.is_castling:
-            rook_row, which_rook = [7, "R"] if self.white_to_move else [0, "r"]
+            rook_row, which_rook = (
+                [7, "R"] if m.piece_moved == "K" else [0, "r"]
+            )
             rook_col, rook_col_new = (
                 [0, 3] if m.is_castling == "queenside" else [7, 5]
             )
@@ -100,17 +99,27 @@ class Chessboard:
             self.board[rook_row, rook_col_new] = which_rook
             self.board[rook_row, rook_col] = "."
 
-        self.white_to_move = not self.white_to_move
-        self.move_log.append(m)
+        # remember when kings first moved
+        if not self.when_w_k_moved and m.piece_moved == "K":
+            self.when_w_k_moved = self.n_half_moves
+        if not self.when_b_k_moved and m.piece_moved == "k":
+            self.when_b_k_moved = self.n_half_moves
 
-        v = self.get_valid_moves()
-        print(v, len(v), end="\n\n")
+        # remember when rooks first moved
+        if not self.when_w_r_moved[0] and self.board[-1, 0] != "R":
+            self.when_w_r_moved[0] = self.n_half_moves
+        if not self.when_w_r_moved[1] and self.board[-1, -1] != "R":
+            self.when_w_r_moved[1] = self.n_half_moves
+        if not self.when_b_r_moved[0] and self.board[0, 0] != "r":
+            self.when_b_r_moved[0] = self.n_half_moves
+        if not self.when_b_r_moved[1] and self.board[0, -1] != "r":
+            self.when_b_r_moved[1] = self.n_half_moves
 
     def undo_move(self):
         if len(self.move_log) > 0:
             m: Move = self.move_log.pop()
-            self.board[m.start_row, m.start_col] = m.piece_moved
-            self.white_to_move = not self.white_to_move
+
+            # undo en passant
             if m.enpassant_capt_sq is None:
                 self.board[m.end_row, m.end_col] = m.piece_captured
             else:
@@ -118,6 +127,33 @@ class Chessboard:
                 enpassant_col = m.enpassant_capt_sq[1]
                 self.board[m.end_row, m.end_col] = "."
                 self.board[enpassant_row, enpassant_col] = "p"
+
+            # special undo for kings
+            if self.n_half_moves + 1 == self.when_w_k_moved:
+                self.when_w_k_moved = None
+            if self.n_half_moves + 1 == self.when_b_k_moved:
+                self.when_b_k_moved = None
+
+            # special undo for rooks
+            if self.n_half_moves + 1 == self.when_w_r_moved[0]:
+                self.when_w_r_moved[0] = None
+            if self.n_half_moves + 1 == self.when_w_r_moved[1]:
+                self.when_w_r_moved[1] = None
+            if self.n_half_moves + 1 == self.when_b_r_moved[0]:
+                self.when_b_r_moved[0] = None
+            if self.n_half_moves + 1 == self.when_b_r_moved[1]:
+                self.when_b_r_moved[1] = None
+
+            # special rook undo if castling
+            if m.is_castling == "queenside":
+                self.board[m.start_row, 3] = "."
+                self.board[m.start_row, 0] = "R" if m.end_row == 7 else "r"
+            elif m.is_castling == "kingside":
+                self.board[m.start_row, 5] = "."
+                self.board[m.start_row, 7] = "R" if m.end_row == 7 else "r"
+
+            self.board[m.start_row, m.start_col] = m.piece_moved
+            self.white_to_move = not self.white_to_move
 
     def get_valid_moves(self):  # removes invalid moves from possible moves
         return self.get_possible_moves()
@@ -280,15 +316,15 @@ class Chessboard:
     def get_ctle_moves(self):  # get possible castling moves
         castle_moves = []
 
-        if self.white_to_move:
-            if self.white_castles[0] and all(self.board[-1, 1:4] == "."):
+        if self.white_to_move and not self.when_w_k_moved:
+            if not self.when_w_r_moved[0] and all(self.board[-1, 1:4] == "."):
                 castle_moves.append(Move([7, 4], [7, 2], self.board))
-            if self.white_castles[1] and all(self.board[-1, 5:7] == "."):
+            if not self.when_w_r_moved[1] and all(self.board[-1, 5:7] == "."):
                 castle_moves.append(Move([7, 4], [7, 6], self.board))
-        else:
-            if self.black_castles[0] and all(self.board[0, 1:4] == "."):
+        elif not self.white_to_move and not self.when_b_k_moved:
+            if not self.when_b_r_moved[0] and all(self.board[0, 1:4] == "."):
                 castle_moves.append(Move([0, 4], [0, 2], self.board))
-            if self.black_castles[1] and all(self.board[0, 5:7] == "."):
+            if not self.when_b_r_moved[1] and all(self.board[0, 5:7] == "."):
                 castle_moves.append(Move([0, 4], [0, 6], self.board))
 
         return castle_moves
@@ -299,3 +335,12 @@ class Chessboard:
         board_ui = concatenate((indexing_ui.T, board_ui), axis=1)
         info_1 = "\nWhite to move" if self.white_to_move else "\nBlack to move"
         return str(board_ui) + info_1
+
+
+if __name__ == "__main__":
+    g = Chessboard()
+    m1 = Move([7, 4], [7, 6], g.board)
+    g.make_move(m1)
+    g.undo_move()
+
+    print("Hello")
